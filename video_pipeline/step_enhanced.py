@@ -97,7 +97,6 @@ def run(folder):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: python {sys.argv[0]} <folder>")
-        sys.exit(1)
-    run(sys.argv[1])
+    from pipeline_utils import DEFAULT_FOLDER
+    folder = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FOLDER
+    run(folder)

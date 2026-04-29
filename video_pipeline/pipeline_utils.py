@@ -2,6 +2,13 @@ import os
 import importlib
 from steps import STEPS
 
+# ── CONFIG ────────────────────────────────────────────────────────────────────
+# Set this to your videos folder. Used by all steps when called with no argument.
+# Windows example:  r"C:\Users\YourName\Videos\my_project"
+# Mac/Linux example: "/home/yourname/videos/my_project"
+DEFAULT_FOLDER = r"C:\Users\YourName\Videos\my_project"
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 def _parse_chain(stem):
     """Return (base, [applied_steps]) by splitting stem on '_' and recognising STEPS tokens."""
