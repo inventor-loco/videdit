@@ -11,8 +11,9 @@ from pipeline_utils import find_input_for_step, output_path_for_step, ask_contin
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP = "enhanced"
-TARGET_LUFS = -14           # ITU-R BS.1770 / YouTube standard
-NOISE_SAMPLE_DURATION_S = 0.5  # seconds taken from the start as the noise profile
+TARGET_LUFS              = -14   # ITU-R BS.1770 / YouTube standard
+NOISE_SAMPLE_DURATION_S  = 0.5   # seconds taken from the start as the noise profile
+NOISE_REDUCTION_STRENGTH = 0.5   # 0.0 = no reduction, 1.0 = full (can sound robotic)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -52,7 +53,7 @@ def run(folder):
 
         # 4. Denoise
         print("  Denoising...")
-        denoised = nr.reduce_noise(y=data, sr=rate, y_noise=noise_profile)
+        denoised = nr.reduce_noise(y=data, sr=rate, y_noise=noise_profile, prop_decrease=NOISE_REDUCTION_STRENGTH)
 
         # 5. Loudness normalisation
         print("  Normalising loudness...")
