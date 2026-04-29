@@ -1,0 +1,8 @@
+1
+00:00:00,000 --> 00:00:04,000
+[Test caption — Whisper unavailable in this environment]
+
+2
+00:00:04,000 --> 00:00:08,770
+[Transcription would appear here in production]
+

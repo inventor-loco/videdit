@@ -5,9 +5,6 @@ __pycache__/
 *.pyd
 .Python
 
-# Test / scratch folders
-test_video/
-
 # Virtual environments
 .venv/
 venv/
