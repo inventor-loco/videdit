@@ -8,7 +8,7 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 from moviepy import VideoFileClip, concatenate_videoclips
 
-from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
+from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP = "silenced"
@@ -41,7 +41,7 @@ def run(folder):
             .input(src)
             .output(tmp_wav, ac=1, ar=16000, format="wav")
             .overwrite_output()
-            .run(quiet=True)
+            .run(quiet=True, cmd=FFMPEG_CMD)
         )
 
         # 2. Detect non-silent ranges

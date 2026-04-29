@@ -3,7 +3,7 @@ import os
 
 import ffmpeg
 
-from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
+from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP           = "captioned"
@@ -45,7 +45,7 @@ def run(folder):
                 vf=f"subtitles={escaped_srt}:force_style='{SUBTITLE_STYLE}'",
             )
             .overwrite_output()
-            .run(quiet=True)
+            .run(quiet=True, cmd=FFMPEG_CMD)
         )
     except ffmpeg.Error as exc:
         print(f"  ffmpeg error:\n{exc.stderr.decode() if exc.stderr else exc}")

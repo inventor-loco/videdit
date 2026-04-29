@@ -1,4 +1,5 @@
 import os
+import shutil
 import importlib
 from steps import STEPS
 
@@ -8,6 +9,23 @@ from steps import STEPS
 # Mac/Linux example: "/home/yourname/videos/my_project"
 DEFAULT_FOLDER = r"C:\Users\YourName\Videos\my_project"
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _resolve_ffmpeg():
+    """Return the ffmpeg binary to use — system install if on PATH, else the
+    one bundled with imageio_ffmpeg (installed as a moviepy dependency)."""
+    if shutil.which("ffmpeg"):
+        return "ffmpeg"
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        raise RuntimeError(
+            "ffmpeg not found. Install it from https://ffmpeg.org/download.html "
+            "and add it to your system PATH, or install imageio_ffmpeg."
+        )
+
+FFMPEG_CMD = _resolve_ffmpeg()
 
 
 def _parse_chain(stem):

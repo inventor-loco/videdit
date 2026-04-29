@@ -7,7 +7,7 @@ import soundfile as sf
 import noisereduce as nr
 import pyloudnorm as pyln
 
-from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
+from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP = "enhanced"
@@ -40,7 +40,7 @@ def run(folder):
             .input(src)
             .output(tmp_raw, ac=1, ar=16000, format="wav")
             .overwrite_output()
-            .run(quiet=True)
+            .run(quiet=True, cmd=FFMPEG_CMD)
         )
 
         # 2. Read WAV
@@ -81,7 +81,7 @@ def run(folder):
                 acodec="aac",
             )
             .overwrite_output()
-            .run(quiet=True)
+            .run(quiet=True, cmd=FFMPEG_CMD)
         )
 
     except ffmpeg.Error as exc:
