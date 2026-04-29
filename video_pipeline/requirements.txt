@@ -1,0 +1,7 @@
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+openai-whisper
+noisereduce
+pyloudnorm
+pydub
+soundfile
