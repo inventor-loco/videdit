@@ -2,9 +2,12 @@ import sys
 import os
 import shutil
 
+import ffmpeg
+import numpy as np
+import soundfile as sf
 import whisper
 
-from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
+from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP                     = "transcribed"
@@ -97,9 +100,26 @@ def run(folder):
         print(f"  Failed to load Whisper model. Check the WHISPER_MODEL constant ('{WHISPER_MODEL}').")
         raise
 
-    # Transcribe
+    # Extract audio to temp WAV so Whisper never needs to call ffmpeg itself
+    stem = os.path.splitext(os.path.basename(src))[0]
+    tmp_wav = os.path.join(folder, f"{stem}_tmpwhisper.wav")
+    try:
+        print("  Extracting audio for Whisper...")
+        (
+            ffmpeg
+            .input(src)
+            .output(tmp_wav, ac=1, ar=16000, format="wav")
+            .overwrite_output()
+            .run(quiet=True, cmd=FFMPEG_CMD)
+        )
+        audio_data, _ = sf.read(tmp_wav, dtype="float32")
+    finally:
+        if os.path.exists(tmp_wav):
+            os.remove(tmp_wav)
+
+    # Transcribe — pass numpy array directly so Whisper skips its internal ffmpeg call
     print("  Transcribing (this may take a while)...")
-    result = model.transcribe(src)
+    result = model.transcribe(audio_data)
     segments = result["segments"]
 
     # Interactive review
