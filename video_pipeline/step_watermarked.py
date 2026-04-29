@@ -1,7 +1,7 @@
 import sys
 import os
 
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
+from moviepy import VideoFileClip, ImageClip, CompositeVideoClip
 
 from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
 
@@ -38,12 +38,13 @@ def run(folder):
 
     logo = (
         ImageClip(watermark_path)
-        .set_duration(clip.duration)
-        .resize(height=WATERMARK_HEIGHT_PX)
-        .set_pos(("right", "bottom"))
-        .set_opacity(WATERMARK_OPACITY)
-        .margin(right=WATERMARK_MARGIN_PX, bottom=WATERMARK_MARGIN_PX, opacity=0)
+        .with_duration(clip.duration)
+        .resized(height=WATERMARK_HEIGHT_PX)
+        .with_opacity(WATERMARK_OPACITY)
     )
+    pos_x = clip.w - logo.w - WATERMARK_MARGIN_PX
+    pos_y = clip.h - logo.h - WATERMARK_MARGIN_PX
+    logo = logo.with_position((pos_x, pos_y))
 
     print("  Compositing watermark...")
     composite = CompositeVideoClip([clip, logo])

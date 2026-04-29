@@ -6,7 +6,7 @@ import tempfile
 import ffmpeg
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy import VideoFileClip, concatenate_videoclips
 
 from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
 
@@ -87,7 +87,7 @@ def run(folder):
 
         # 4. Cut and concatenate with moviepy
         clip = VideoFileClip(src)
-        subclips = [clip.subclip(s / 1000, e / 1000) for s, e in merged]
+        subclips = [clip.subclipped(s / 1000, e / 1000) for s, e in merged]
         final = concatenate_videoclips(subclips)
         final.write_videofile(out, logger=None)
         clip.close()

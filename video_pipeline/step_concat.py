@@ -1,7 +1,7 @@
 import sys
 import os
 
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy import VideoFileClip, concatenate_videoclips
 
 from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain
 
@@ -12,15 +12,15 @@ OUTRO_FILENAME = "assets/outro.mp4"   # relative to folder
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _resize_to_match(clip, target_w, target_h, target_fps):
+def _resize_to_match(clip, path, target_w, target_h, target_fps):
     """Resize clip to target dimensions and set fps if they differ."""
     resized = clip
     if clip.size != (target_w, target_h):
-        print(f"  ⚠  Resolution mismatch: {clip.filename} is {clip.size}, resizing to ({target_w}, {target_h})")
-        resized = resized.resize((target_w, target_h))
+        print(f"  ⚠  Resolution mismatch: {path} is {clip.size}, resizing to ({target_w}, {target_h})")
+        resized = resized.resized((target_w, target_h))
     if clip.fps != target_fps:
-        print(f"  ⚠  FPS mismatch: {clip.filename} is {clip.fps} fps, adjusting to {target_fps} fps")
-        resized = resized.set_fps(target_fps)
+        print(f"  ⚠  FPS mismatch: {path} is {clip.fps} fps, adjusting to {target_fps} fps")
+        resized = resized.with_fps(target_fps)
     return resized
 
 
@@ -48,7 +48,7 @@ def run(folder):
     if os.path.exists(intro_path):
         print(f"  Using intro: {INTRO_FILENAME}")
         intro = VideoFileClip(intro_path)
-        intro = _resize_to_match(intro, target_w, target_h, target_fps)
+        intro = _resize_to_match(intro, intro_path, target_w, target_h, target_fps)
         clips.append(intro)
     else:
         print(f"  Intro not found at '{intro_path}' — skipping.")
@@ -58,7 +58,7 @@ def run(folder):
     if os.path.exists(outro_path):
         print(f"  Using outro: {OUTRO_FILENAME}")
         outro = VideoFileClip(outro_path)
-        outro = _resize_to_match(outro, target_w, target_h, target_fps)
+        outro = _resize_to_match(outro, outro_path, target_w, target_h, target_fps)
         clips.append(outro)
     else:
         print(f"  Outro not found at '{outro_path}' — skipping.")
