@@ -10,8 +10,8 @@ from pipeline_utils import find_input_for_step, output_path_for_step, ask_contin
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP               = "silenced"
-SILENCE_THRESH_DB  = -40   # dBFS below which audio is considered silent
-MIN_SILENCE_MS     = 700   # minimum silence duration that triggers a cut
+SILENCE_THRESH_DB  = -35   # dBFS below which audio is considered silent
+MIN_SILENCE_MS     = 500   # minimum silence duration that triggers a cut
 SILENCE_PADDING_MS = 150   # ms kept at both edges of each kept segment
 # ─────────────────────────────────────────────────────────────────────────────
 
