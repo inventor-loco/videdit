@@ -1,21 +1,61 @@
 import sys
 import os
+import re
 import shutil
-import tempfile
+import subprocess
 
-import ffmpeg
-from pydub import AudioSegment
-from pydub.silence import detect_nonsilent
 from moviepy import VideoFileClip, concatenate_videoclips
 
 from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-STEP = "silenced"
+STEP               = "silenced"
 SILENCE_THRESH_DB  = -40   # dBFS below which audio is considered silent
 MIN_SILENCE_MS     = 700   # minimum silence duration that triggers a cut
 SILENCE_PADDING_MS = 150   # ms kept at both edges of each kept segment
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _detect_nonsilent(src):
+    """Use ffmpeg silencedetect to find non-silent ranges. Returns list of (start_ms, end_ms)."""
+    min_silence_s = MIN_SILENCE_MS / 1000
+    noise = f"{SILENCE_THRESH_DB}dB"
+
+    result = subprocess.run(
+        [FFMPEG_CMD, "-i", src,
+         "-af", f"silencedetect=noise={noise}:d={min_silence_s}",
+         "-f", "null", "-"],
+        capture_output=True, text=True, errors="replace",
+    )
+    output = result.stderr
+
+    # Parse total duration
+    dur_match = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", output)
+    if not dur_match:
+        raise RuntimeError("Could not read video duration from ffmpeg output.")
+    h, m, s = dur_match.groups()
+    total_s = int(h) * 3600 + int(m) * 60 + float(s)
+    total_ms = int(total_s * 1000)
+
+    silence_starts = [float(x) for x in re.findall(r"silence_start:\s*([\d.]+)", output)]
+    silence_ends   = [float(x) for x in re.findall(r"silence_end:\s*([\d.]+)", output)]
+
+    if not silence_starts:
+        return [(0, total_ms)]  # no silence found
+
+    eps = 0.01  # ignore gaps smaller than 10 ms
+    non_silent = []
+    pos = 0.0
+
+    for i, s_start in enumerate(silence_starts):
+        if s_start - pos > eps:
+            non_silent.append((int(pos * 1000), int(s_start * 1000)))
+        pos = silence_ends[i] if i < len(silence_ends) else total_s
+
+    if total_s - pos > eps:
+        non_silent.append((int(pos * 1000), total_ms))
+
+    return non_silent, total_ms
 
 
 def run(folder):
@@ -30,75 +70,52 @@ def run(folder):
     out_name = os.path.basename(out)
     print(f"[{STEP}] {src_name} → {out_name}")
 
-    stem = os.path.splitext(os.path.basename(src))[0]
-    tmp_wav = os.path.join(folder, f"{stem}_tmpraw.wav")
+    print("  Detecting silences...")
+    result = _detect_nonsilent(src)
 
-    try:
-        # 1. Extract mono 16 kHz audio
-        print("  Extracting audio for silence detection...")
-        (
-            ffmpeg
-            .input(src)
-            .output(tmp_wav, ac=1, ar=16000, format="wav")
-            .overwrite_output()
-            .run(quiet=True, cmd=FFMPEG_CMD)
+    # _detect_nonsilent returns (list, total_ms) when silences exist, or [(0, total_ms)] when none
+    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[0], list):
+        non_silent, total_ms = result
+    else:
+        non_silent, total_ms = result, result[-1][1]
+
+    if not non_silent:
+        raise ValueError(
+            f"The entire video appears to be silent (thresh={SILENCE_THRESH_DB} dBFS). "
+            "Check the source file."
         )
 
-        # 2. Detect non-silent ranges
-        audio = AudioSegment.from_wav(tmp_wav)
-        total_ms = len(audio)
+    # Single segment covering the whole file → no silences to remove
+    if len(non_silent) == 1 and non_silent[0][0] == 0 and non_silent[0][1] >= total_ms - 10:
+        print("  No silences detected — copying source unchanged.")
+        shutil.copy2(src, out)
+        print(f"✓ Saved: {out_name}")
+        ask_continue_chain(folder, STEP)
+        return
 
-        non_silent = detect_nonsilent(
-            audio,
-            min_silence_len=MIN_SILENCE_MS,
-            silence_thresh=SILENCE_THRESH_DB,
-        )
+    # Expand segments by padding (clamped to valid range)
+    padded = []
+    for start_ms, end_ms in non_silent:
+        s = max(0, start_ms - SILENCE_PADDING_MS)
+        e = min(total_ms, end_ms + SILENCE_PADDING_MS)
+        padded.append((s, e))
 
-        if not non_silent:
-            raise ValueError(
-                f"The entire video appears to be silent (thresh={SILENCE_THRESH_DB} dBFS). "
-                "Check the source file."
-            )
+    # Merge overlapping padded segments
+    merged = [padded[0]]
+    for s, e in padded[1:]:
+        if s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
 
-        # Check if no silence was actually removed (non_silent covers the whole file)
-        if len(non_silent) == 1 and non_silent[0][0] == 0 and non_silent[0][1] >= total_ms - 1:
-            print("  No silences detected — copying source unchanged.")
-            shutil.copy2(src, out)
-            print(f"✓ Saved: {out_name}")
-            ask_continue_chain(folder, STEP)
-            return
+    print(f"  Keeping {len(merged)} segment(s) out of original duration {total_ms / 1000:.1f}s")
 
-        # 3. Expand each segment by padding (clamped to valid range)
-        padded = []
-        for start_ms, end_ms in non_silent:
-            s = max(0, start_ms - SILENCE_PADDING_MS)
-            e = min(total_ms, end_ms + SILENCE_PADDING_MS)
-            padded.append((s, e))
-
-        # Merge overlapping padded segments
-        merged = [padded[0]]
-        for s, e in padded[1:]:
-            if s <= merged[-1][1]:
-                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
-            else:
-                merged.append((s, e))
-
-        print(f"  Keeping {len(merged)} segment(s) out of original duration {total_ms / 1000:.1f}s")
-
-        # 4. Cut and concatenate with moviepy
-        clip = VideoFileClip(src)
-        subclips = [clip.subclipped(s / 1000, e / 1000) for s, e in merged]
-        final = concatenate_videoclips(subclips)
-        final.write_videofile(out, logger=None)
-        clip.close()
-        final.close()
-
-    except ffmpeg.Error as exc:
-        print(f"  ffmpeg error:\n{exc.stderr.decode() if exc.stderr else exc}")
-        raise
-    finally:
-        if os.path.exists(tmp_wav):
-            os.remove(tmp_wav)
+    clip = VideoFileClip(src)
+    subclips = [clip.subclipped(s / 1000, e / 1000) for s, e in merged]
+    final = concatenate_videoclips(subclips)
+    final.write_videofile(out, logger=None)
+    clip.close()
+    final.close()
 
     print(f"✓ Saved: {out_name}")
     ask_continue_chain(folder, STEP)
