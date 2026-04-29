@@ -11,7 +11,7 @@ from pipeline_utils import find_input_for_step, output_path_for_step, ask_contin
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 STEP                     = "transcribed"
-WHISPER_MODEL            = "large"   # tiny | base | small | medium | large
+WHISPER_MODEL            = "medium"   # tiny | base | small | medium | large
 LOW_CONFIDENCE_THRESHOLD = -0.6       # avg_logprob below this is flagged for review
 MAX_CAPTION_WORDS        = 7          # split segments longer than this into shorter chunks
 # ─────────────────────────────────────────────────────────────────────────────
