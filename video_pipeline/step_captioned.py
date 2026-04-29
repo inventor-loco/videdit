@@ -1,7 +1,6 @@
 import sys
 import os
-
-import ffmpeg
+import subprocess
 
 from pipeline_utils import find_input_for_step, output_path_for_step, ask_continue_chain, FFMPEG_CMD
 
@@ -34,22 +33,26 @@ def run(folder):
         )
 
     print(f"  Burning subtitles from {os.path.basename(srt_path)}...")
-    try:
-        # Escape colons in path for ffmpeg subtitles filter (Windows-safe too)
-        escaped_srt = srt_path.replace("\\", "/").replace(":", "\\:")
-        (
-            ffmpeg
-            .input(src)
-            .output(
-                out,
-                vf=f"subtitles={escaped_srt}:force_style='{SUBTITLE_STYLE}'",
-            )
-            .overwrite_output()
-            .run(quiet=True, cmd=FFMPEG_CMD)
-        )
-    except ffmpeg.Error as exc:
-        print(f"  ffmpeg error:\n{exc.stderr.decode() if exc.stderr else exc}")
-        raise
+
+    # Run ffmpeg from the SRT's directory and pass only the filename.
+    # This avoids Windows path escaping issues (drive letter colons) in the
+    # subtitles filter, which cannot reliably handle absolute paths on Windows.
+    srt_dir = os.path.dirname(os.path.abspath(srt_path))
+    srt_name = os.path.basename(srt_path)
+    src_abs = os.path.abspath(src)
+    out_abs = os.path.abspath(out)
+
+    vf = f"subtitles={srt_name}:force_style='{SUBTITLE_STYLE}'"
+    result = subprocess.run(
+        [FFMPEG_CMD, "-i", src_abs, "-vf", vf, "-y", out_abs],
+        cwd=srt_dir,
+        capture_output=True,
+        text=True,
+        errors="replace",
+    )
+    if result.returncode != 0:
+        print(f"  ffmpeg error:\n{result.stderr}")
+        raise RuntimeError("ffmpeg subtitle burn failed.")
 
     print(f"✓ Saved: {out_name}")
     ask_continue_chain(folder, STEP)
