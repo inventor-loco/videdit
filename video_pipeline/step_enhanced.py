@@ -13,7 +13,7 @@ from pipeline_utils import find_input_for_step, output_path_for_step, ask_contin
 STEP = "enhanced"
 TARGET_LUFS              = -14   # ITU-R BS.1770 / YouTube standard
 NOISE_SAMPLE_DURATION_S  = 0.5   # seconds taken from the start as the noise profile
-NOISE_REDUCTION_STRENGTH = 0.3   # 0.0 = no reduction, 1.0 = full (can sound robotic)
+NOISE_REDUCTION_STRENGTH = 0.2   # 0.0 = no reduction, 1.0 = full (can sound robotic)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
