@@ -13,6 +13,7 @@ from pipeline_utils import find_input_for_step, output_path_for_step, ask_contin
 STEP                     = "transcribed"
 WHISPER_MODEL            = "medium"   # tiny | base | small | medium | large
 LOW_CONFIDENCE_THRESHOLD = -0.6       # avg_logprob below this is flagged for review
+MAX_CAPTION_WORDS        = 5          # split segments longer than this into shorter chunks
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -42,6 +43,30 @@ def _is_flagged(seg):
         seg.get("avg_logprob", 0) < LOW_CONFIDENCE_THRESHOLD
         or len(seg["text"].strip()) < 3
     )
+
+
+def _split_segments(segments):
+    """Break any segment longer than MAX_CAPTION_WORDS into shorter chunks.
+    Timestamps are distributed proportionally by word count."""
+    result = []
+    for seg in segments:
+        words = seg["text"].strip().split()
+        if len(words) <= MAX_CAPTION_WORDS:
+            result.append(seg)
+            continue
+
+        duration = seg["end"] - seg["start"]
+        total_words = len(words)
+        chunks = [words[i:i + MAX_CAPTION_WORDS] for i in range(0, total_words, MAX_CAPTION_WORDS)]
+
+        chunk_start = seg["start"]
+        for chunk in chunks:
+            chunk_dur = duration * len(chunk) / total_words
+            chunk_end = chunk_start + chunk_dur
+            result.append({**seg, "text": " " + " ".join(chunk), "start": chunk_start, "end": chunk_end})
+            chunk_start = chunk_end
+
+    return result
 
 
 def review_segments_cli(segments):
@@ -124,6 +149,12 @@ def run(folder):
 
     # Interactive review
     segments = review_segments_cli(segments)
+
+    # Break long captions into shorter chunks for phone-friendly display
+    segments_before = len(segments)
+    segments = _split_segments(segments)
+    if len(segments) != segments_before:
+        print(f"  Split into {len(segments)} captions (was {segments_before}, max {MAX_CAPTION_WORDS} words each).")
 
     # Derive SRT path from output stem
     out_stem = os.path.splitext(out)[0]
